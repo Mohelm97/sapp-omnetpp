@@ -30,7 +30,7 @@ void PSASinkApp::handleMessageWhenUp(cMessage *msg) {
         auto& tags = check_and_cast<ITaggedObject *>(msg)->getTags();
         tags.addTagIfAbsent<DispatchProtocolReq>()->setProtocol(&PSANetworkProtocol::protocol);
         send(msg, gate("socketOut"));
-        scheduleAfter(subTimeout, msg);
+        scheduleAfter(subTimeout, msg->dup());
     } else {
         EV_INFO << "RECIVED MESSAGE: " << msg << endl;
         auto packet = dynamic_cast<Packet *>(msg);
