@@ -1,0 +1,30 @@
+package networkpaper.simulations.Mobility;
+
+import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
+import inet.node.inet.AdhocHost;
+import inet.physicallayer.wireless.unitdisk.UnitDiskRadioMedium;
+import inet.visualizer.contract.IIntegratedVisualizer;
+import networkpaper.PSADevice;
+
+network Mobility
+{
+    parameters:
+        int numHosts;
+        int hcMaxSubscribe;
+        int hcMaxPublish;
+        **.hcMaxSubscribe = this.hcMaxSubscribe;
+        **.hcMaxPublish = this.hcMaxPublish;
+    submodules:
+        visualizer: <default(firstAvailableOrEmpty("IntegratedCanvasVisualizer"))> like IIntegratedVisualizer if typename != "" {
+            parameters:
+                @display("p=100,300;is=s");
+        }
+        radioMedium: UnitDiskRadioMedium {
+            parameters:
+                @display("p=100,200;is=s");
+        }
+        host[numHosts]: PSADevice {
+            parameters:
+                @display("p=300,200");
+        }
+}

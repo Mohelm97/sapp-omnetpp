@@ -1,0 +1,3 @@
+package networkpaper;
+
+@license(LGPL);
