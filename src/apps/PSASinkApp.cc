@@ -43,5 +43,5 @@ void PSASinkApp::handleMessageWhenUp(cMessage *msg) {
     }
 }
 void PSASinkApp::finish() {
-    EV_INFO << "Number of Recived Messages on " << topic << ": " << recivedMessages << endl;
+    EV_INFO << getParentModule()->getFullName() << " Number of Received Messages on " << topic << ": " << recivedMessages << endl;
 }

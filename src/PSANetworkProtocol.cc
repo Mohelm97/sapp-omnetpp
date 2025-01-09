@@ -174,8 +174,8 @@ void PSANetworkProtocol::broadcastPacket(Packet *packet)
 
 void PSANetworkProtocol::sendDownTo(Packet *packet, MacAddress dest)
 {
-    auto newPacket = packet->dup();
-    auto chunk = newPacket->removeAtFront<PSAMessage>();
+    auto newPacket = new Packet(packet->getName());
+    auto chunk = makeShared<PSAMessage>(*packet->peekAtFront<PSAMessage>());
     if (chunk->getNeedAcking() && packet->hasTag<inet::MacAddressInd>()) {
         inet::MacAddress srcHop = packet->getTag<inet::MacAddressInd>()->getSrcAddress();
         chunk->appendPathHops(srcHop);
