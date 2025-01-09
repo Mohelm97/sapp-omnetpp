@@ -3,6 +3,7 @@ package networkpaper.simulations.Simple;
 import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
 import inet.node.inet.AdhocHost;
 import inet.physicallayer.wireless.unitdisk.UnitDiskRadioMedium;
+import inet.visualizer.canvas.integrated.IntegratedCanvasVisualizer;
 import inet.visualizer.contract.IIntegratedVisualizer;
 import networkpaper.PSADevice;
 
@@ -14,7 +15,7 @@ network Simple
         **.hcMaxSubscribe = this.hcMaxSubscribe;
         **.hcMaxPublish = this.hcMaxPublish;
     submodules:
-        visualizer: <default(firstAvailableOrEmpty("IntegratedCanvasVisualizer"))> like IIntegratedVisualizer if typename != "" {
+        visualizer: IntegratedCanvasVisualizer {
             parameters:
                 @display("p=100,300;is=s");
         }
@@ -47,7 +48,7 @@ network Simple
                 @display("p=1200,100");
         }
 
-		host_6: PSADevice {
+        host_6: PSADevice {
             parameters:
                 @display("p=200,300");
         }
@@ -71,7 +72,7 @@ network Simple
             parameters:
                 @display("p=1200,300");
         }
-        
+
         host_12: PSADevice {
             parameters:
                 @display("p=200,500");
