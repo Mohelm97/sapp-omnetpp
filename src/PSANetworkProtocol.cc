@@ -11,7 +11,15 @@ void PSANetworkProtocol::initialize(int stage)
 {
     NetworkProtocolBase::initialize(stage);
     if (stage == inet::INITSTAGE_LOCAL) {
+        PSANetworkProtocol::boradcastsCounter = 0;
+        PSANetworkProtocol::subBroadcastsCounter = 0;
+        PSANetworkProtocol::pubBroadcastsCounter = 0;
         PSANetworkProtocol::nonceCounter = 0;
+        PSANetworkProtocol::totalSentMessages = 0;
+        PSANetworkProtocol::totalSentMessagesToSubs = 0;
+        PSANetworkProtocol::totalReceivedMessages = 0;
+        PSANetworkProtocol::totalAckingRecived = 0;
+        PSANetworkProtocol::topicSubscripers.clear();
         if (ProtocolGroup::getEthertypeProtocolGroup()->findProtocol(getProtocol().getId()) == nullptr) {
             ProtocolGroup::getEthertypeProtocolGroup()->addProtocol(getProtocol().getId(), &getProtocol());
         }
@@ -21,7 +29,8 @@ void PSANetworkProtocol::initialize(int stage)
         nodeName = getParentModule()->getParentModule()->getFullName();
         WATCH_VECTOR(localTopics);
         WATCH_MAP(subscriptionTable);
-        scheduleAfter(1, new cMessage());
+        WATCH_MAP(topicSubscripers);
+        scheduleAfter(1, new cMessage("Clean Subscribe Timer"));
    }
 }
 
@@ -33,12 +42,12 @@ void PSANetworkProtocol::handleMessage(cMessage *msg)
 
 void PSANetworkProtocol::handleSelfMessage(cMessage *msg)
 {
-    // Timer Message;
-    scheduleAfter(1, new cMessage());
+    // This here will reschedule subscribe timer
+    scheduleAfter(1, new cMessage("Clean Subscribe Timer"));
     for(auto& [key, list] : subscriptionTable) {
         for (auto it = list.begin(); it != list.end(); ) {
            it->timer++;
-           if (it->timer >= 40) {
+           if (it->timer >= subCleanTimeout) {
                it = list.erase(it);
            } else {
                ++it;
@@ -63,6 +72,7 @@ void PSANetworkProtocol::handleUpperPacket(Packet *packet)
     if (chunk->getHopCount() + 1 < hcMax) {
         broadcastPacket(packet);
     } else if (subscriptionTable.find(topic) != subscriptionTable.end()) {
+        broadcastPacket(packet);
         std::list<PSASubscriptionEntry> subList = subscriptionTable[topic];
         for (auto entry : subList) {
             sendDownTo(packet, entry.nextHop);
@@ -105,8 +115,9 @@ bool PSANetworkProtocol::handleLowerSubscribe (Packet *packet)
 
     std::list<PSASubscriptionEntry>& subscribers = subscriptionTable[topic];
     bool found = false;
-    for (const auto& entry : subscribers) {
+    for (auto& entry : subscribers) {
         if (entry.sourceNodeName == sourceNodeName && entry.nextHop == nextHop) {
+            entry.timer = 0;
             EV_INFO << "Subscription already exists: Topic=" << topic << ", Node=" << sourceNodeName << ", NextHop=" << nextHop << endl;
             found = true;
             break;
@@ -117,7 +128,7 @@ bool PSANetworkProtocol::handleLowerSubscribe (Packet *packet)
         EV_INFO << "Adding subscription: Topic=" << topic << ", Node=" << sourceNodeName << ", NextHop=" << nextHop << endl;
     }
 
-    if (chunk->getHopCount() + 1 < hcMaxSubscribe) {
+    if (chunk->getHopCount() < hcMaxSubscribe) {
         broadcastPacket(packet);
     }
     return true;
@@ -140,10 +151,10 @@ bool PSANetworkProtocol::handleLowerPublish (Packet *packet)
         handled = true;
     }
 
-    if (chunk->getHopCount() + 1 < hcMaxPublish) {
+    if (chunk->getHopCount() < hcMaxPublish) {
         broadcastPacket(packet);
         handled = true;
-    } else if (chunk->getHopCount() + 1 < hcMaxPublish + hcMaxSubscribe && subscriptionTable.find(topic) != subscriptionTable.end()) {
+    } else if (subscriptionTable.find(topic) != subscriptionTable.end()) {
         std::list<PSASubscriptionEntry> subList = subscriptionTable[topic];
         for (auto entry : subList) {
             sendDownTo(packet, entry.nextHop);
@@ -157,6 +168,7 @@ bool PSANetworkProtocol::handleLowerAcking(Packet *packet)
 {
     auto chunk = packet->removeAtFront<PSAMessage>();
     if (chunk->getPathHopsArraySize() == 0) {
+        PSANetworkProtocol::totalAckingRecived++;
         EV_INFO << "handleLowerAcking::" << nodeName << " Acking for me!" << endl;
         return true;
     }
@@ -169,6 +181,12 @@ bool PSANetworkProtocol::handleLowerAcking(Packet *packet)
 
 void PSANetworkProtocol::broadcastPacket(Packet *packet)
 {
+    boradcastsCounter++;
+    auto type = packet->peekAtFront<PSAMessage>()->getType();
+    if (type == PSAMessageType::Publication)
+        pubBroadcastsCounter++;
+    else if (type == PSAMessageType::Subscription)
+        subBroadcastsCounter++;
     sendDownTo(packet, MacAddress::BROADCAST_ADDRESS);
 }
 
@@ -210,12 +228,27 @@ void PSANetworkProtocol::sendAcking(Packet *packet)
 
 void PSANetworkProtocol::finish()
 {
-
+    if (boradcastsCounter == 0)
+        return;
+    EV_INFO << "PSANetwork Broadcasts:\n" << "  Total: " << boradcastsCounter << "\n    Pub: " << pubBroadcastsCounter << "\n    Sub: " << subBroadcastsCounter << endl;
+    EV_INFO << "Total Sent Messages: " << totalSentMessages << "\nTotal Send*Subs: " << totalSentMessagesToSubs << "\nTotal Received Messages: " << totalReceivedMessages
+            << "\nDelivery Rate: " << (totalReceivedMessages*100/totalSentMessagesToSubs) << "\nTotal Acking Recived: " << totalAckingRecived << endl;
+    EV_INFO << "EXCEL ROW: " << boradcastsCounter << "\t" << subBroadcastsCounter << "\t" <<  pubBroadcastsCounter << "\t" << totalReceivedMessages << "\t" << totalSentMessagesToSubs << endl;
+    boradcastsCounter = 0;
 }
 
 // Define protocol and data protocol (Transport layer)
 
 int PSANetworkProtocol::nonceCounter = 0;
+int PSANetworkProtocol::boradcastsCounter = 0;
+int PSANetworkProtocol::subBroadcastsCounter = 0;
+int PSANetworkProtocol::pubBroadcastsCounter = 0;
+int PSANetworkProtocol::totalSentMessages = 0;
+int PSANetworkProtocol::totalSentMessagesToSubs = 0;
+int PSANetworkProtocol::totalReceivedMessages = 0;
+int PSANetworkProtocol::totalAckingRecived = 0;
+std::map<std::string, int> PSANetworkProtocol::topicSubscripers;
+
 const Protocol PSANetworkProtocol::protocol = Protocol("psa", "Pub/Sub Acking", inet::Protocol::NetworkLayer);
 const Protocol PSANetworkProtocol::dataProtocol = Protocol("psa_data", "Pub/Sub Acking Data", inet::Protocol::TransportLayer);
 const Protocol& PSANetworkProtocol::getProtocol() const { return PSANetworkProtocol::protocol; }

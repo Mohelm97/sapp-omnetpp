@@ -8,6 +8,7 @@ void PSASourceApp::initialize(int stage)
     if (stage == INITSTAGE_LOCAL) {
         topic = par("topic").stringValue();
         delay = par("delay").doubleValue();
+        rate = par("rate").doubleValue();
         needAcking = par("needAcking").boolValue();
 
         operationalState = State::OPERATING;
@@ -25,7 +26,10 @@ void PSASourceApp::initialize(int stage)
 
 void PSASourceApp::handleMessageWhenUp(inet::cMessage *msg) {
     if (msg->isSelfMessage()){
-        // scheduleAfter(0.1, msg->dup());
+        PSANetworkProtocol::totalSentMessages++;
+        PSANetworkProtocol::totalSentMessagesToSubs += PSANetworkProtocol::topicSubscripers[topic];
+        if (rate != 0)
+            scheduleAfter(1/rate, msg->dup());
         auto& tags = check_and_cast<inet::ITaggedObject *>(msg)->getTags();
         tags.addTagIfAbsent<inet::DispatchProtocolReq>()->setProtocol(&PSANetworkProtocol::protocol);
         send(msg, gate("socketOut"));

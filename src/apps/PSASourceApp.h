@@ -11,6 +11,7 @@ class PSASourceApp : public ApplicationBase
   protected:
     const char* topic;
     double delay;
+    double rate;
     bool needAcking;
 
     virtual void initialize(int stage) override;

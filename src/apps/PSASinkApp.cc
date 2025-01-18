@@ -20,6 +20,7 @@ void PSASinkApp::initialize(int stage)
         scheduleAt(0, subPacket);
         WATCH(recivedMessages);
     } else if (stage == INITSTAGE_APPLICATION_LAYER) {
+        PSANetworkProtocol::topicSubscripers[topic]++;
         registerProtocol(PSANetworkProtocol::dataProtocol, gate("socketOut"), gate("socketIn"));
     }
 }
@@ -35,8 +36,9 @@ void PSASinkApp::handleMessageWhenUp(cMessage *msg) {
         EV_INFO << "RECIVED MESSAGE: " << msg << endl;
         auto packet = dynamic_cast<Packet *>(msg);
         auto messageChunk = packet->peekAtFront<PSAMessage>();
-        if (messageChunk->getType() == PSAMessageType::Publication) {
+        if (messageChunk->getType() == PSAMessageType::Publication && (std::string)messageChunk->getTopic() == topic) {
             recivedMessages++;
+            PSANetworkProtocol::totalReceivedMessages++;
             EV_INFO << "RECIVED PUBLISH MESSAGE TOPIC: " << messageChunk->getTopic() << " FROM: " << messageChunk->getSourceNodeName() << endl;
         }
         delete msg;

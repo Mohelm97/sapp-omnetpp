@@ -58,6 +58,15 @@ class PSANetworkProtocol : public NetworkProtocolBase
     virtual void handleCrashOperation(LifecycleOperation *operation) override {};
 
   public:
+    static int boradcastsCounter;
+    static int subBroadcastsCounter;
+    static int pubBroadcastsCounter;
+    static int totalSentMessages;
+    static int totalSentMessagesToSubs;
+    static int totalReceivedMessages;
+    static int totalAckingRecived;
+    static std::map<std::string, int> topicSubscripers;
+
     static const Protocol protocol;
     static const Protocol dataProtocol;
     static int nonceCounter; // Just for simulation!
